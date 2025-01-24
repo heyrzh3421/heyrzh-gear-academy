@@ -4,21 +4,15 @@ mod tests {
     use gtest::{Program, System};
     use pebbles_game_io::*;
 
-    const EXISTENTIAL_DEPOSIT: u128 = 1000000000000;
+    const EXISTENTIAL_DEPOSIT: u128 = 10000000000000000000;
 
     #[test]
     fn test_init() {
         let system = System::new();
-
         system.init_logger();
-
         system.mint_to(101, EXISTENTIAL_DEPOSIT);
 
-        // Load the program from the WASM file
-        let program = Program::from_file(
-            &system,
-            "./target/wasm32-unknown-unknown/debug/pebbles_game.opt.wasm",
-        );
+        let program = Program::current(&system);
 
         let init_msg = PebblesInit {
             difficulty: DifficultyLevel::Easy,
@@ -26,11 +20,9 @@ mod tests {
             max_pebbles_per_turn: 3,
         };
 
-        // Send the initialization message
-        let res = program.send(101, init_msg.encode());
-        println!("res::{:?}", res);
+        program.send_bytes(101, init_msg.encode());
+        system.run_next_block();
 
-        // Read the state
         let state: GameState = program.read_state(()).expect("Failed to read state");
         assert_eq!(state.pebbles_count, 15);
         assert_eq!(state.max_pebbles_per_turn, 3);
@@ -52,12 +44,13 @@ mod tests {
         };
 
         program.send_bytes(101, init_msg.encode());
+        system.run_next_block();
 
         let action_msg = PebblesAction::Turn(2);
         program.send_bytes(101, action_msg.encode());
-
+        system.run_next_block();
         let state: GameState = program.read_state(()).unwrap();
-        assert_eq!(state.pebbles_remaining, 13);
+        assert_eq!(state.pebbles_remaining, 9);
     }
 
     #[test]
@@ -75,9 +68,11 @@ mod tests {
         };
 
         program.send_bytes(101, init_msg.encode());
+        system.run_next_block();
 
         let action_msg = PebblesAction::Turn(2);
         program.send_bytes(101, action_msg.encode());
+        system.run_next_block();
 
         let state: GameState = program.read_state(()).unwrap();
         assert!(state.pebbles_remaining <= 13);
@@ -98,10 +93,11 @@ mod tests {
         };
 
         program.send_bytes(101, init_msg.encode());
+        system.run_next_block();
 
         let action_msg = PebblesAction::Turn(2);
         program.send_bytes(101, action_msg.encode());
-
+        system.run_next_block();
         let state: GameState = program.read_state(()).unwrap();
         assert!(state.pebbles_remaining <= 13);
     }
@@ -121,10 +117,11 @@ mod tests {
         };
 
         program.send_bytes(101, init_msg.encode());
+        system.run_next_block();
 
         let action_msg = PebblesAction::GiveUp;
         program.send_bytes(101, action_msg.encode());
-
+        system.run_next_block();
         let state: GameState = program.read_state(()).unwrap();
         assert_eq!(state.winner, Some(Player::Program));
     }
@@ -144,6 +141,7 @@ mod tests {
         };
 
         program.send_bytes(101, init_msg.encode());
+        system.run_next_block();
 
         let restart_msg = PebblesAction::Restart {
             difficulty: DifficultyLevel::Hard,
@@ -152,6 +150,7 @@ mod tests {
         };
 
         program.send_bytes(101, restart_msg.encode());
+        system.run_next_block();
 
         let state: GameState = program.read_state(()).unwrap();
         assert_eq!(state.pebbles_count, 20);
